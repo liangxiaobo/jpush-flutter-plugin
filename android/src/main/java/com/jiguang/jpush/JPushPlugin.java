@@ -3,6 +3,7 @@ package com.jiguang.jpush;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import cn.jiguang.api.JCoreInterface;
+import cn.jiguang.api.utils.JCollectionAuth;
 import cn.jpush.android.api.JPushInterface;
 import cn.jpush.android.api.NotificationMessage;
 import cn.jpush.android.data.JPushLocalNotification;
@@ -118,11 +120,25 @@ public class JPushPlugin implements FlutterPlugin, MethodCallHandler {
             openSettingsForNotification(call, result);
         } else if (call.method.equals("setWakeEnable")) {
             setWakeEnable(call, result);
+        } else if (call.method.equals("setAuth")) {
+            setAuth(call, result);
         } else {
             result.notImplemented();
         }
     }
 
+    private void setAuth(MethodCall call, Result result){
+        HashMap<String, Object> map = call.arguments();
+        if (map == null) {
+            return;
+        }
+        Boolean enable = (Boolean) map.get("enable");
+        if (enable == null) {
+            enable = false;
+        }
+        Log.d("debug_110","setauth="+enable);
+        JCollectionAuth.setAuth(context,enable);
+    }
     private void setWakeEnable(MethodCall call, Result result) {
         HashMap<String, Object> map = call.arguments();
         if (map == null) {
@@ -163,7 +179,7 @@ public class JPushPlugin implements FlutterPlugin, MethodCallHandler {
         JPushInterface.setDebugMode(debug);
 
         JPushInterface.init(context);            // 初始化 JPush
-
+        JPushInterface.setNotificationCallBackEnable(context, true);
         String channel = (String) map.get("channel");
         JPushInterface.setChannel(context, channel);
 
@@ -431,13 +447,6 @@ public class JPushPlugin implements FlutterPlugin, MethodCallHandler {
             String alert = intent.getStringExtra(JPushInterface.EXTRA_ALERT);
             Map<String, Object> extras = getNotificationExtras(intent);
             JPushPlugin.transmitNotificationOpen(title, alert, extras);
-
-            Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-            if (launch != null) {
-                launch.addCategory(Intent.CATEGORY_LAUNCHER);
-                launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                context.startActivity(launch);
-            }
         }
 
         private void handlingNotificationReceive(Context context, Intent intent) {
@@ -450,15 +459,14 @@ public class JPushPlugin implements FlutterPlugin, MethodCallHandler {
         }
 
         private Map<String, Object> getNotificationExtras(Intent intent) {
-            Log.d(TAG, "");
-
             Map<String, Object> extrasMap = new HashMap<String, Object>();
-            for (String key : intent.getExtras().keySet()) {
+            Bundle extras = intent.getExtras();
+            for (String key : extras.keySet()) {
                 if (!IGNORED_EXTRAS_KEYS.contains(key)) {
                     if (key.equals(JPushInterface.EXTRA_NOTIFICATION_ID)) {
                         extrasMap.put(key, intent.getIntExtra(key, 0));
                     } else {
-                        extrasMap.put(key, intent.getStringExtra(key));
+                        extrasMap.put(key, extras.get(key));
                     }
                 }
             }
